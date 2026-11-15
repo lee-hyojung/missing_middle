@@ -60,6 +60,8 @@ input[type=range]{width:100%;accent-color:#1F7A6B;margin:2px 0 0}
 .how{font-size:.7rem;color:var(--muted);margin:7px 0 0;line-height:1.5}
 #err{display:none;left:50%;top:50%;transform:translate(-50%,-50%);padding:14px 18px;font-size:.9rem;max-width:min(460px,calc(100vw - 40px))}
 .leaflet-control-attribution{font-size:10px}
+.bm-gray{filter:grayscale(1) brightness(1.06) contrast(.88)}
+.bm-terrain{filter:grayscale(1) brightness(1.02) contrast(1.05)}
 @media (max-width:680px){
   #head{padding:10px 12px 9px;max-height:calc(100% - 170px);overflow:auto;-webkit-overflow-scrolling:touch}
   h1{font-size:1rem;margin:2px 0 0}.toggle,.rtoggle{display:inline-block}.cur{display:block}
@@ -83,6 +85,7 @@ input[type=range]{width:100%;accent-color:#1F7A6B;margin:2px 0 0}
     <div class="row"><p class="lab">Year</p><div class="seg" id="year" style="grid-template-columns:repeat(3,1fr)"></div></div>
     <div class="row"><p class="lab">Change, 2000–2020</p><div class="seg" id="chg" style="grid-template-columns:repeat(3,1fr)"></div><p class="def" id="note"></p></div>
     <div class="row"><p class="lab"><span>Fill opacity</span><span id="opv"></span></p><input id="op" type="range" min="20" max="95" step="5" value="80" aria-label="Fill opacity"></div>
+    <div class="row"><p class="lab">Basemap</p><div class="seg" id="base" style="grid-template-columns:repeat(3,1fr)"><button data-b="gray" aria-pressed="true">Gray</button><button data-b="terrain" aria-pressed="false">Terrain</button><button data-b="color" aria-pressed="false">Color</button></div></div>
     <div class="views" role="group" aria-label="View"><button data-v="county">LA County</button><button data-v="city">City of LA</button></div>
   </div>
   <div id="legend"></div>
@@ -100,10 +103,10 @@ let T,U; try{ [T,U]=await Promise.all([fetch('data/geo.topo.json').then(r=>r.jso
 const Y=U.years, K=U.keys, CITY=new Set(U.city);
 const VARS=[{k:'h0000',n:'Total',s:'housing units'},{k:'shr_h0001',n:'Single family',s:'1 unit'},{k:'shr_h0204',n:'2 to 4',s:'units'},{k:'shr_h0519',n:'5 to 19',s:'units'},
             {k:'shr_h2049',n:'20 to 49',s:'units'},{k:'shr_h5099',n:'50 or more',s:'units'},{k:'shr_h0219',n:'Missing middle',s:'2 to 19 units'},{k:'shr_h2099',n:'20 or more',s:'units'}];
-// 구성 막대: Single family 골드(#EFC000), 2–4·5–19 파랑(옅게→진하게), 20–49·50+ 올리브(옅게→진하게), Other 회색
-const CAT=[['shr_h0001','Single family','#EFC000'],['shr_h0204','2–4','#82C0E9'],['shr_h0519','5–19','#008BBC'],['shr_h2049','20–49','#CAC27E'],['shr_h5099','50+','#9C8847']], OTHER='#C9D1D4';
+// 구성 막대: Single family 골드(#EFC000), 2–4·5–19 올리브(옅게→진하게), 20–49·50+ 파랑(옅게→진하게), Other 회색
+const CAT=[['shr_h0001','Single family','#EFC000'],['shr_h0204','2–4','#CAC27E'],['shr_h0519','5–19','#9C8847'],['shr_h2049','20–49','#82C0E9'],['shr_h5099','50+','#008BBC']], OTHER='#C9D1D4';
 const MODES={abs:{n:'Number',s:'units',t:'Change in number, 2000–2020'},pct:{n:'% change',s:'vs. 2000',t:'% change since 2000'},pp:{n:'Share',s:'pct. points',t:'Change in share, 2000–2020'}};
-const S={v:'shr_h0219',m:2020,op:.80,pin:null};
+const S={v:'shr_h0219',m:2020,op:.80,pin:null,base:'gray'};
 const PAL=["#E9F1D4","#CFE0B5","#93C393","#4E9F7F","#1F7A6B","#0B5C55","#063A36"], DIV=["#D73027","#FC8D59","#FEE08B","#FFFFBF","#D9EF8B","#91CF60","#1A9850"];
 const MISS='#9AA5AA', MISSLAB='Missing or housing units < 100', NOBASE='#EFE9DD', NOBASELAB='None in 2000';
 const isChg=()=>typeof S.m==='string', yIdx=()=> isChg()? 2 : Y.indexOf(S.m), isT=()=>S.v==='h0000';
@@ -141,18 +144,24 @@ const colour=g=>{ const v=cur(g); return v==null? MISS : Number.isNaN(v)? NOBASE
 const map=L.map('map',{zoomControl:false,preferCanvas:true,minZoom:7,maxZoom:18,zoomSnap:.25,attributionControl:false});
 L.control.zoom({position:'topright'}).addTo(map); L.control.attribution({position:'bottomleft',prefix:'<a href="https://leafletjs.com">Leaflet</a>'}).addTo(map);
 // 배경 지도: CARTO 무료 키(carto.com/basemaps/apikey)를 받으면 아래 따옴표 안에 넣어요.
-//   키가 있으면 CARTO Voyager(지도 위에 도로·지명 글자를 다시 올림), 없으면 OpenStreetMap 표준 지도(키 필요 없음)를 써요.
+//   Gray  : 키가 있으면 CARTO Positron(회색조 지도, 글자는 색 위에), 없으면 OpenStreetMap 을 회색조로
+//   Terrain: OpenTopoMap(지형 음영)을 회색조로      Color: 키가 있으면 CARTO Voyager, 없으면 OpenStreetMap 컬러
 const CARTO_KEY='';
 const OSM='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', DATA=' · Data: U.S. Census Bureau';
 map.createPane('labels').style.zIndex=450; map.getPane('labels').style.pointerEvents='none';
 map.createPane('city').style.zIndex=460; map.getPane('city').style.pointerEvents='none';
-if(CARTO_KEY){
-  const k='?key='+encodeURIComponent(CARTO_KEY);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png'+k,{subdomains:'abcd',maxZoom:20,attribution:OSM+' &copy; <a href="https://carto.com/attributions">CARTO</a>'+DATA}).addTo(map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png'+k,{subdomains:'abcd',maxZoom:20,pane:'labels'}).addTo(map);
-} else {
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:OSM+DATA}).addTo(map);
-}
+const ck= CARTO_KEY? '?key='+encodeURIComponent(CARTO_KEY) : '';
+const carto=(st,o={})=>L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/${st}/{z}/{x}/{y}{r}.png${ck}`,{subdomains:'abcd',maxZoom:20,...o});
+const BASES={
+  gray: ()=> CARTO_KEY? [carto('light_nolabels',{attribution:OSM+' &copy; <a href="https://carto.com/attributions">CARTO</a>'+DATA}), carto('light_only_labels',{pane:'labels'})]
+                      : [L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,className:'bm-gray',attribution:OSM+DATA})],
+  terrain: ()=> [L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxZoom:17,className:'bm-terrain',
+                  attribution:OSM+', SRTM · Map style &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'+DATA})],
+  color: ()=> CARTO_KEY? [carto('voyager_nolabels',{attribution:OSM+' &copy; <a href="https://carto.com/attributions">CARTO</a>'+DATA}), carto('voyager_only_labels',{pane:'labels'})]
+                       : [L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:OSM+DATA})]};
+let baseLayers=[];
+function setBase(k){ baseLayers.forEach(l=>map.removeLayer(l)); baseLayers=BASES[k](); baseLayers.forEach(l=>l.addTo(map)); S.base=k;
+  document.querySelectorAll('#base button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.b===k))); }
 const TR=topojson.feature(T,T.objects.tracts), CY=topojson.feature(T,T.objects.city), EDGE=topojson.mesh(T,T.objects.tracts,(a,b)=>a===b);
 const style=f=>({fillColor:colour(f.properties.GEOID10),fillOpacity:S.op*(cur(f.properties.GEOID10)==null?.6:1),color:'#FFFFFF',weight:.5,opacity:.7});
 const tracts=L.geoJSON(TR,{style,renderer:L.canvas({padding:.5})}).addTo(map);
@@ -164,7 +173,7 @@ const mainB=L.latLngBounds([]); tracts.eachLayer(l=>{ const b=l.getBounds(); if(
 const cityB=L.geoJSON(CY).getBounds();
 function fit(b,anim){ const wide=innerWidth>780, h=document.getElementById('head').offsetHeight, r=document.getElementById('read').offsetHeight;
   map.fitBounds(b,{paddingTopLeft: wide? [420,20] : [10,h+20], paddingBottomRight: wide? [20,20] : [10,r+30], animate:anim}); }
-fit(mainB,false);
+fit(mainB,false); setBase(S.base);
 // ---------- 그리기, 범례, 정보판
 function draw(){ scale(); tracts.setStyle(style); legend(); buttons(); show(); document.getElementById('cur').textContent=`${vlabel()} · ${mname()}`; }
 function legend(){ const box=document.getElementById('legend'), n=COLS.length, tk=['',...BR.map(fmt)];
@@ -216,6 +225,7 @@ function buttons(){ grid.querySelectorAll('button').forEach(b=>b.setAttribute('a
 const op=document.getElementById('op'), opv=document.getElementById('opv'); opv.textContent=op.value+'%';
 op.oninput=()=>{ S.op=op.value/100; opv.textContent=op.value+'%'; tracts.setStyle(style); };
 document.querySelectorAll('.views button').forEach(b=>b.onclick=()=>fit(b.dataset.v==='city'?cityB:mainB,true));
+document.querySelectorAll('#base button').forEach(b=>b.onclick=()=>setBase(b.dataset.b));
 const head=document.getElementById('head'), tg=document.getElementById('toggle'), mob=()=>matchMedia('(max-width:680px)').matches;
 const setOpen=o=>{ head.classList.toggle('open',o); tg.setAttribute('aria-expanded',String(o)); tg.textContent=o?'Close ▴':'Settings ▾'; };
 tg.onclick=()=>setOpen(!head.classList.contains('open'));
