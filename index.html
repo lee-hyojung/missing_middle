@@ -78,11 +78,11 @@ input[type=range]{width:100%;accent-color:#1F7A6B;margin:2px 0 0}
   <div class="top"><h1>Housing by Units in Structure</h1><button id="toggle" class="toggle" aria-expanded="false" aria-controls="ctrl">Settings ▾</button></div>
   <p class="cur" id="cur"></p>
   <div id="ctrl">
-    <p class="sub">Share of housing units by the number of units in the structure, for census tracts (2010 definition) in Los Angeles County, 2000–2020. The bold line marks the City of Los Angeles.</p>
+    <p class="sub">Explore how Los Angeles County’s housing stock is distributed across building sizes, from single-family homes to large apartment buildings. Each census tract (2010 boundaries) shows the share of its housing units in the selected structure type, or the change between 2000 and 2020. The bold outline marks the City of Los Angeles.</p>
     <div class="row"><p class="lab">Units in structure</p><div class="grid" id="var"></div></div>
     <div class="row"><p class="lab">Year</p><div class="seg" id="year" style="grid-template-columns:repeat(3,1fr)"></div></div>
     <div class="row"><p class="lab">Change, 2000–2020</p><div class="seg" id="chg" style="grid-template-columns:repeat(3,1fr)"></div><p class="def" id="note"></p></div>
-    <div class="row"><p class="lab"><span>Fill opacity</span><span id="opv"></span></p><input id="op" type="range" min="20" max="95" step="5" value="65" aria-label="Fill opacity"></div>
+    <div class="row"><p class="lab"><span>Fill opacity</span><span id="opv"></span></p><input id="op" type="range" min="20" max="95" step="5" value="80" aria-label="Fill opacity"></div>
     <div class="views" role="group" aria-label="View"><button data-v="county">LA County</button><button data-v="city">City of LA</button></div>
   </div>
   <div id="legend"></div>
@@ -100,10 +100,10 @@ let T,U; try{ [T,U]=await Promise.all([fetch('data/geo.topo.json').then(r=>r.jso
 const Y=U.years, K=U.keys, CITY=new Set(U.city);
 const VARS=[{k:'h0000',n:'Total',s:'housing units'},{k:'shr_h0001',n:'Single family',s:'1 unit'},{k:'shr_h0204',n:'2 to 4',s:'units'},{k:'shr_h0519',n:'5 to 19',s:'units'},
             {k:'shr_h2049',n:'20 to 49',s:'units'},{k:'shr_h5099',n:'50 or more',s:'units'},{k:'shr_h0219',n:'Missing middle',s:'2 to 19 units'},{k:'shr_h2099',n:'20 or more',s:'units'}];
-// 구성 막대: Single family 베이지, 2–4 → 50+ 파란색이 점점 진하게(Economist 색표), Other 회색
-const CAT=[['shr_h0001','Single family','#E8DFC2'],['shr_h0204','2–4','#82C0E9'],['shr_h0519','5–19','#008BBC'],['shr_h2049','20–49','#3E647D'],['shr_h5099','50+','#1A476F']], OTHER='#C9D1D4';
+// 구성 막대: Single family 골드(#EFC000), 2–4·5–19 파랑(옅게→진하게), 20–49·50+ 올리브(옅게→진하게), Other 회색
+const CAT=[['shr_h0001','Single family','#EFC000'],['shr_h0204','2–4','#82C0E9'],['shr_h0519','5–19','#008BBC'],['shr_h2049','20–49','#CAC27E'],['shr_h5099','50+','#9C8847']], OTHER='#C9D1D4';
 const MODES={abs:{n:'Number',s:'units',t:'Change in number, 2000–2020'},pct:{n:'% change',s:'vs. 2000',t:'% change since 2000'},pp:{n:'Share',s:'pct. points',t:'Change in share, 2000–2020'}};
-const S={v:'shr_h0219',m:2020,op:.65,pin:null};
+const S={v:'shr_h0219',m:2020,op:.80,pin:null};
 const PAL=["#E9F1D4","#CFE0B5","#93C393","#4E9F7F","#1F7A6B","#0B5C55","#063A36"], DIV=["#D73027","#FC8D59","#FEE08B","#FFFFBF","#D9EF8B","#91CF60","#1A9850"];
 const MISS='#9AA5AA', MISSLAB='Missing or housing units < 100', NOBASE='#EFE9DD', NOBASELAB='None in 2000';
 const isChg=()=>typeof S.m==='string', yIdx=()=> isChg()? 2 : Y.indexOf(S.m), isT=()=>S.v==='h0000';
@@ -208,7 +208,7 @@ const yr=document.getElementById('year'), ch=document.getElementById('chg');
 yr.innerHTML=Y.map(y=>`<button data-m="${y}">${y}</button>`).join('');
 ch.innerHTML=Object.entries(MODES).map(([k,m])=>`<button data-m="${k}">${m.n}<small>${m.s}</small></button>`).join('');
 [...yr.querySelectorAll('button'),...ch.querySelectorAll('button')].forEach(b=>b.onclick=()=>{ if(b.disabled) return; S.m= /^\d+$/.test(b.dataset.m)? +b.dataset.m : b.dataset.m; draw(); });
-const NOTE={abs:'Number of housing units in 2020 minus 2000.',pct:'Change in the number of housing units relative to 2000. Tracts with none in 2000 are shown as “None in 2000”.',pp:'Share in 2020 minus share in 2000, in percentage points (pp).'};
+const NOTE={abs:'Number of housing units in the selected category in 2020 minus the number in 2000.',pct:'Change in the number of housing units in the selected category relative to 2000. Tracts with none in 2000 are shown as “None in 2000”.',pp:'Share of housing units in the selected category in 2020 minus the share in 2000, in percentage points (pp).'};
 function buttons(){ grid.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===S.v));
   [...yr.querySelectorAll('button'),...ch.querySelectorAll('button')].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m)===String(S.m)));
   const pp=ch.querySelector('button[data-m="pp"]'); pp.disabled=isT(); pp.title= isT()? 'Not available for Total: the share of all housing units is always 100%' : '';
