@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Housing by Units in Structure, Los Angeles County, 2000–2020</title>
+<link rel="stylesheet" href="lib/leaflet/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sea:#E4EBEE; --ink:#1B2A31; --muted:#56666E; --panel:rgba(255,255,255,.95); --edge:rgba(27,42,49,.14);
+  --btn:#FFFFFF; --btn-on:#1B2A31; --btn-on-ink:#FFFFFF;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  font-family:"IBM Plex Sans","Helvetica Neue",Arial,system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --sea:#0E1920; --ink:#E4ECEF; --muted:#9CACB3; --panel:rgba(16,27,33,.95); --edge:rgba(228,236,239,.14);
+  --btn:#16252C; --btn-on:#E4ECEF; --btn-on-ink:#0E1920; } }
+:root[data-theme="dark"]{ --sea:#0E1920; --ink:#E4ECEF; --muted:#9CACB3; --panel:rgba(16,27,33,.95); --edge:rgba(228,236,239,.14);
+  --btn:#16252C; --btn-on:#E4ECEF; --btn-on-ink:#0E1920; }
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;min-height:600px;margin:0}
+body{background:var(--sea);color:var(--ink);overflow:hidden;position:relative}
+#map{position:absolute;inset:0;background:var(--sea)}
+.leaflet-container{font:inherit;background:#E4EBEE}
+.panel{position:absolute;z-index:1000;background:var(--panel);border:1px solid var(--edge);border-radius:10px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#head{top:calc(env(safe-area-inset-top,0px) + 14px);left:14px;padding:15px 17px 13px;width:min(390px,calc(100vw - 28px))}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+h1{font-size:1.1rem;line-height:1.3;font-weight:600;margin:0 0 3px;letter-spacing:-.01em}
+.sub{font-size:.76rem;color:var(--muted);margin:0 0 9px;line-height:1.5}
+.cur{display:none;font-size:.76rem;color:var(--muted);margin:3px 0 0}
+.row{margin:0 0 8px}.lab{font-size:.7rem;color:var(--muted);margin:0 0 3px;display:flex;justify-content:space-between}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.grid button,.seg button{font:inherit;font-size:.76rem;padding:6px 2px;border:1px solid var(--edge);border-radius:7px;background:var(--btn);color:var(--ink);cursor:pointer;line-height:1.25}
+.grid button small{display:block;font-size:.62rem;color:var(--muted)}
+.grid button[aria-pressed="true"],.seg button[aria-pressed="true"]{background:var(--btn-on);color:var(--btn-on-ink);border-color:var(--btn-on);font-weight:600}
+.grid button[aria-pressed="true"] small{color:inherit;opacity:.75}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.seg button small{display:block;font-size:.62rem;color:var(--muted)}.seg button[aria-pressed="true"] small{color:inherit;opacity:.75}
+.seg button[disabled]{opacity:.35;cursor:not-allowed}
+button:focus-visible,input:focus-visible{outline:2px solid #C0622D;outline-offset:1px}
+input[type=range]{width:100%;accent-color:#1F7A6B;margin:2px 0 0}
+.def{font-size:.72rem;color:var(--muted);margin:5px 0 0;line-height:1.5}
+.bar{display:grid;height:11px;border-radius:3px;overflow:hidden;margin-top:8px}
+.ticks{display:grid;font-size:.64rem;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+.ticks span{transform:translateX(-50%);white-space:nowrap}.ticks span:first-child{transform:none}
+.keys{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.7rem;color:var(--muted);margin-top:6px}
+.keys span{display:inline-flex;align-items:center;gap:5px}.sw{display:inline-block;width:11px;height:11px;border-radius:2px}.ln{display:inline-block;width:18px;height:0}
+.views{display:flex;gap:4px;margin-top:8px}
+.views button,.toggle,.rtoggle{font:inherit;font-size:.74rem;padding:4px 8px;border-radius:7px;border:1px solid var(--edge);background:var(--btn);color:var(--ink);cursor:pointer}
+.toggle,.rtoggle{display:none;white-space:nowrap}
+#read{right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);padding:13px 16px;width:min(330px,calc(100vw - 28px))}
+#read .name{font-size:1rem;font-weight:600;margin:0}#read .where{font-size:.74rem;color:var(--muted);margin:2px 0 0}
+#read .big{font-size:1.5rem;font-weight:500;margin:6px 0 0;font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:auto auto;gap:3px 14px;font-size:.78rem;margin:8px 0 0;font-variant-numeric:tabular-nums}.stats dt{color:var(--muted)}.stats dd{margin:0;text-align:right}
+.comp{margin-top:10px}.comp .r{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:6px;margin-top:4px;font-size:.68rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.comp .b{display:flex;height:12px;border-radius:2px;overflow:hidden;background:var(--edge)}.comp .b i{display:block;height:100%}
+.ckeys{display:flex;flex-wrap:wrap;gap:3px 9px;font-size:.64rem;color:var(--muted);margin-top:6px}.ckeys span{display:inline-flex;align-items:center;gap:4px}
+.how{font-size:.7rem;color:var(--muted);margin:7px 0 0;line-height:1.5}
+#err{display:none;left:50%;top:50%;transform:translate(-50%,-50%);padding:14px 18px;font-size:.9rem;max-width:min(460px,calc(100vw - 40px))}
+.leaflet-control-attribution{font-size:10px}
+@media (max-width:680px){
+  #head{padding:10px 12px 9px;max-height:calc(100% - 170px);overflow:auto;-webkit-overflow-scrolling:touch}
+  h1{font-size:1rem;margin:2px 0 0}.toggle,.rtoggle{display:inline-block}.cur{display:block}
+  #head:not(.open) #ctrl{display:none}#head.open .cur{display:none}#head.open #ctrl{margin-top:8px}
+  #read{left:10px;right:10px;width:auto;padding:10px 12px}.rtoggle{position:absolute;top:8px;right:10px;padding:3px 8px;font-size:.72rem}
+  #readc{padding-right:70px}#read.more #readc{padding-right:0}
+  #read:not(.more) .comp,#read:not(.more) .how,#read:not(.more) .ckeys{display:none}
+  #read:not(.more) .stats dt:nth-of-type(n+2),#read:not(.more) .stats dd:nth-of-type(n+2){display:none}
+  #read .big{font-size:1.3rem;margin-top:4px}
+}
+</style>
+</head>
+<body>
+<div id="map" role="application" aria-label="Map of housing units by units in structure for Los Angeles County census tracts"></div>
+<section id="head" class="panel">
+  <div class="top"><h1>Housing by Units in Structure</h1><button id="toggle" class="toggle" aria-expanded="false" aria-controls="ctrl">Settings ▾</button></div>
+  <p class="cur" id="cur"></p>
+  <div id="ctrl">
+    <p class="sub">Share of housing units by the number of units in the structure, for census tracts (2010 definition) in Los Angeles County, 2000–2020. The bold line marks the City of Los Angeles.</p>
+    <div class="row"><p class="lab">Units in structure</p><div class="grid" id="var"></div></div>
+    <div class="row"><p class="lab">Year</p><div class="seg" id="year" style="grid-template-columns:repeat(3,1fr)"></div></div>
+    <div class="row"><p class="lab">Change, 2000–2020</p><div class="seg" id="chg" style="grid-template-columns:repeat(3,1fr)"></div><p class="def" id="note"></p></div>
+    <div class="row"><p class="lab"><span>Fill opacity</span><span id="opv"></span></p><input id="op" type="range" min="20" max="95" step="5" value="65" aria-label="Fill opacity"></div>
+    <div class="views" role="group" aria-label="View"><button data-v="county">LA County</button><button data-v="city">City of LA</button></div>
+  </div>
+  <div id="legend"></div>
+</section>
+<section id="read" class="panel"><button id="rtoggle" class="rtoggle" aria-expanded="false" aria-controls="readc">More ▴</button><div id="readc" aria-live="polite"><p class="how">Loading…</p></div></section>
+<section id="err" class="panel">The map could not be loaded.</section>
+<script src="lib/leaflet/leaflet.js"></script>
+<script src="lib/topojson-client.min.js"></script>
+<script>
+(async function(){
+const err=m=>{ const e=document.getElementById('err'); e.style.display='block'; e.innerHTML='The map could not be loaded.<br><small>'+m+'</small>'; };
+if(!window.L||!window.topojson){ err('Map libraries are missing. Check that the lib folder was uploaded.'); return; }
+if(location.protocol==='file:'){ err('Opening the file directly does not work. Please open the GitHub Pages address.'); return; }
+let T,U; try{ [T,U]=await Promise.all([fetch('data/geo.topo.json').then(r=>r.json()),fetch('data/units.json').then(r=>r.json())]); }catch(e){ err(String(e)); return; }
+const Y=U.years, K=U.keys, CITY=new Set(U.city);
+const VARS=[{k:'h0000',n:'Total',s:'housing units'},{k:'shr_h0001',n:'Single family',s:'1 unit'},{k:'shr_h0204',n:'2 to 4',s:'units'},{k:'shr_h0519',n:'5 to 19',s:'units'},
+            {k:'shr_h2049',n:'20 to 49',s:'units'},{k:'shr_h5099',n:'50 or more',s:'units'},{k:'shr_h0219',n:'Missing middle',s:'2 to 19 units'},{k:'shr_h2099',n:'20 or more',s:'units'}];
+// 구성 막대: Economist 색표 (Single family 녹색, 2–4 → 50+ 파란색이 점점 진하게, Other 회색)
+const CAT=[['shr_h0001','Single family','#2D6D66'],['shr_h0204','2–4','#82C0E9'],['shr_h0519','5–19','#008BBC'],['shr_h2049','20–49','#3E647D'],['shr_h5099','50+','#1A476F']], OTHER='#C9D1D4';
+const MODES={abs:{n:'Number',s:'units',t:'Change in number, 2000–2020'},pct:{n:'% change',s:'vs. 2000',t:'% change since 2000'},pp:{n:'Share',s:'pct. points',t:'Change in share, 2000–2020'}};
+const S={v:'shr_h0219',m:2020,op:.65,pin:null};
+const PAL=["#E9F1D4","#CFE0B5","#93C393","#4E9F7F","#1F7A6B","#0B5C55","#063A36"], DIV=["#D73027","#FC8D59","#FEE08B","#FFFFBF","#D9EF8B","#91CF60","#1A9850"];
+const MISS='#9AA5AA', MISSLAB='Missing or housing units < 100', NOBASE='#EFE9DD', NOBASELAB='None in 2000';
+const isChg=()=>typeof S.m==='string', yIdx=()=> isChg()? 2 : Y.indexOf(S.m), isT=()=>S.v==='h0000';
+const vlabel=()=>{ const v=VARS.find(x=>x.k===S.v); return isT()? 'Total housing units' : v.n+(v.k==='shr_h0001'?' (1 unit)':v.k==='shr_h0219'?' (2 to 19 units)':' units'); };
+const mname=()=> isChg()? MODES[S.m].t : String(S.m);
+const get=(g,yi,k)=>{ const r=U.d[g]; return r&&r[yi]? r[yi][K.indexOf(k)] : null; };
+const cnt=(g,yi,k)=>{ const t=get(g,yi,'h0000'); if(t==null) return null; if(k==='h0000') return t; const s=get(g,yi,k); return s==null? null : t*s/100; };   // 호수 = 전체 × 비율
+const shr=(g,yi,k)=> k==='h0000'? (get(g,yi,'h0000')==null? null : 100) : get(g,yi,k);
+// 지금 보기의 값: 숫자, null(자료 없음), NaN(2000년 0호라 % 변화를 계산할 수 없음)
+function cur(g){ if(!isChg()) return isT()? get(g,yIdx(),'h0000') : get(g,yIdx(),S.v);
+  if(S.m==='abs'){ const a=cnt(g,0,S.v), b=cnt(g,2,S.v); return a==null||b==null? null : b-a; }
+  if(S.m==='pct'){ const a=cnt(g,0,S.v), b=cnt(g,2,S.v); if(a==null||b==null) return null; if(a<.5) return b<.5? 0 : NaN; return (b-a)/a*100; }
+  const a=shr(g,0,S.v), b=shr(g,2,S.v); return a==null||b==null? null : b-a; }
+const n0=v=>Math.round(v).toLocaleString('en-US'), sgn=(v,s)=>(v>0?'+':v<0?'−':'')+s;
+const lvl=v=> isT()? n0(v) : v.toFixed(1)+'%';
+const pc=v=> (Math.abs(v)>=100? n0(Math.abs(v)) : Math.abs(v).toFixed(1))+'%';
+const fmt=v=>{ if(!isChg()) return lvl(v); if(S.m==='abs') return sgn(v,n0(Math.abs(v))); if(S.m==='pct') return sgn(v,pc(v)); return sgn(v,Math.abs(v).toFixed(1)+' pp'); };
+// ---------- 색: 한 해 값은 세 연도를 모아 분위수(연도가 달라도 같은 기준), 변화는 크기의 분위수로 좌우 대칭
+let BR=[],COLS=[];
+function scale(){ const a=[], nice=v=>+(+v).toPrecision(2);
+  if(isChg()){ for(const g in U.d){ const d=cur(g); if(d!=null&&!Number.isNaN(d)&&d!==0) a.push(Math.abs(d)); } }
+  else for(const g in U.d) for(let yi=0;yi<3;yi++){ const v= isT()? get(g,yi,'h0000') : get(g,yi,S.v); if(v!=null&&v>0) a.push(v); }
+  a.sort((x,y)=>x-y); const q=p=>a[Math.floor(p*(a.length-1))]||1;
+  if(S.m==='pct'){   // % 변화는 감소가 −100%를 넘을 수 없으니 감소·증가 쪽 구간을 따로 정한다
+    const ng=[],ps=[]; for(const g in U.d){ const d=cur(g); if(d==null||Number.isNaN(d)||d===0) continue; (d<0?ng:ps).push(Math.abs(d)); }
+    ng.sort((x,y)=>x-y); ps.sort((x,y)=>x-y); const qq=(a,p)=>a[Math.floor(p*(a.length-1))]||1;
+    const n1=nice(qq(ng,.3)),n2=Math.max(nice(qq(ng,.7)),n1*1.5),n3=Math.min(100,Math.max(nice(qq(ng,.94)),n2*1.3));
+    const p1=nice(qq(ps,.3)),p2=Math.max(nice(qq(ps,.7)),p1*1.5),p3=Math.max(nice(qq(ps,.94)),p2*1.5);
+    BR=[-n3,-n2,-n1,p1,p2,p3]; COLS=DIV; return; }
+  if(isChg()){ const b1=nice(q(.3)),b2=Math.max(nice(q(.7)),b1*1.5),b3=Math.max(nice(q(.94)),b2*1.5); BR=[-b3,-b2,-b1,b1,b2,b3]; COLS=DIV; return; }
+  const o=[]; for(const p of [.15,.3,.45,.6,.75,.9]){ const b=nice(q(p)); if(!o.length||b>o[o.length-1]) o.push(b); } BR=o; COLS=PAL.slice(PAL.length-o.length-1); }
+const klass=v=>{ if(isChg()) return v<=BR[0]?0:v<=BR[1]?1:v<=BR[2]?2:v<BR[3]?3:v<BR[4]?4:v<BR[5]?5:6; let k=0; while(k<BR.length&&v>=BR[k]) k++; return k; };
+const colour=g=>{ const v=cur(g); return v==null? MISS : Number.isNaN(v)? NOBASE : COLS[klass(v)]; };
+// ---------- 지도: 배경(글자 없음) → tract(반투명) → 배경 글자 → City of LA 경계
+const map=L.map('map',{zoomControl:false,preferCanvas:true,minZoom:7,maxZoom:18,zoomSnap:.25,attributionControl:false});
+L.control.zoom({position:'topright'}).addTo(map); L.control.attribution({position:'bottomleft',prefix:'<a href="https://leafletjs.com">Leaflet</a>'}).addTo(map);
+const ATTR='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> · Data: U.S. Census Bureau';
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:20,attribution:ATTR}).addTo(map);
+map.createPane('labels').style.zIndex=450; map.getPane('labels').style.pointerEvents='none';
+map.createPane('city').style.zIndex=460; map.getPane('city').style.pointerEvents='none';
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:20,pane:'labels'}).addTo(map);
+const TR=topojson.feature(T,T.objects.tracts), CY=topojson.feature(T,T.objects.city), EDGE=topojson.mesh(T,T.objects.tracts,(a,b)=>a===b);
+const style=f=>({fillColor:colour(f.properties.GEOID10),fillOpacity:S.op*(cur(f.properties.GEOID10)==null?.6:1),color:'#FFFFFF',weight:.5,opacity:.7});
+const tracts=L.geoJSON(TR,{style,renderer:L.canvas({padding:.5})}).addTo(map);
+L.geoJSON(EDGE,{pane:'city',style:{color:'#1B2A31',weight:1,opacity:.55},interactive:false}).addTo(map);
+L.geoJSON(CY,{pane:'city',style:{color:'#FFFFFF',weight:5.5,opacity:.85,fill:false},interactive:false}).addTo(map);
+L.geoJSON(CY,{pane:'city',style:{color:'#1B2A31',weight:2.2,opacity:1,fill:false},interactive:false}).addTo(map);
+const pinL=L.geoJSON(null,{pane:'city',style:{color:'#C0622D',weight:3,fill:false},interactive:false}).addTo(map);
+const mainB=L.latLngBounds([]); tracts.eachLayer(l=>{ const b=l.getBounds(); if(b.getCenter().lat>33.65) mainB.extend(b); });
+const cityB=L.geoJSON(CY).getBounds();
+function fit(b,anim){ const wide=innerWidth>780, h=document.getElementById('head').offsetHeight, r=document.getElementById('read').offsetHeight;
+  map.fitBounds(b,{paddingTopLeft: wide? [420,20] : [10,h+20], paddingBottomRight: wide? [20,20] : [10,r+30], animate:anim}); }
+fit(mainB,false);
+// ---------- 그리기, 범례, 정보판
+function draw(){ scale(); tracts.setStyle(style); legend(); buttons(); show(); document.getElementById('cur').textContent=`${vlabel()} · ${mname()}`; }
+function legend(){ const box=document.getElementById('legend'), n=COLS.length, tk=['',...BR.map(fmt)];
+  const unit= !isChg()? (isT()? 'Housing units' : 'Share of housing units (%)') : S.m==='abs'? 'Change in housing units, 2000–2020' : S.m==='pct'? 'Change in housing units relative to 2000 (%)' : 'Change in share, 2000–2020 (percentage points)';
+  box.innerHTML=`<div class="bar" style="grid-template-columns:repeat(${n},1fr)">${COLS.map(c=>`<span style="background:${c}"></span>`).join('')}</div>
+    <div class="ticks" style="grid-template-columns:repeat(${n},1fr)">${tk.map(t=>`<span>${t}</span>`).join('')}</div>
+    <div class="keys"><span>${unit}</span><span><i class="sw" style="background:${MISS}"></i>${MISSLAB}</span>${S.m==='pct'?`<span><i class="sw" style="background:${NOBASE};outline:1px solid var(--edge)"></i>${NOBASELAB}</span>`:''}<span><i class="ln" style="border-top:2.2px solid #1B2A31"></i>City of Los Angeles</span></div>`; }
+const csum=(yi,k)=>{ let a=0; for(const g in U.d){ const c=cnt(g,yi,k); if(c!=null) a+=c; } return a; };
+function summary(){ const c=[0,1,2].map(yi=>csum(yi,S.v)), t=[0,1,2].map(yi=>csum(yi,'h0000')), s=c.map((x,i)=>x/t[i]*100);
+  const useShare= S.m==='pp' || (!isChg()&&!isT());
+  const big= !isChg()? (isT()? n0(c[yIdx()]) : s[yIdx()].toFixed(1)+'%') : S.m==='abs'? sgn(c[2]-c[0],n0(Math.abs(c[2]-c[0]))) : S.m==='pct'? sgn(c[2]-c[0],pc((c[2]-c[0])/c[0]*100)) : sgn(s[2]-s[0],Math.abs(s[2]-s[0]).toFixed(1)+' pp');
+  const row=i=> useShare? s[i].toFixed(1)+'%' : n0(c[i])+(isT()?'':' units');
+  document.getElementById('readc').innerHTML=`<p class="name">${vlabel()}</p><p class="where">Los Angeles County · ${mname()}</p><p class="big">${big}</p>
+    <dl class="stats"><dt>2000</dt><dd>${row(0)}</dd><dt>2010</dt><dd>${row(1)}</dd><dt>2020</dt><dd>${row(2)}</dd></dl>
+    <p class="how">Hover over or tap a tract to see its values and its mix of structure types. County shares are weighted by housing units.</p>`; }
+function comp(g){ const rows=Y.map((y,yi)=>{ if(!U.d[g]||!U.d[g][yi]) return `<div class="r"><span>${y}</span><div class="b"></div></div>`;
+    const segs=CAT.map(([k,n,c])=>[get(g,yi,k)||0,c,n]), s=segs.reduce((a,b)=>a+b[0],0);
+    return `<div class="r"><span>${y}</span><div class="b">${segs.map(([v,c,n])=>`<i style="width:${v}%;background:${c}" title="${n}: ${v.toFixed(1)}%"></i>`).join('')}<i style="width:${Math.max(0,100-s)}%;background:${OTHER}" title="Other: ${Math.max(0,100-s).toFixed(1)}%"></i></div></div>`; }).join('');
+  return `<div class="comp">${rows}</div><div class="ckeys">${CAT.map(([k,n,c])=>`<span><i class="sw" style="background:${c}"></i>${n}</span>`).join('')}<span><i class="sw" style="background:${OTHER}"></i>Other (e.g., mobile homes)</span></div>`; }
+function tract(f){ const g=f.properties.GEOID10, v=cur(g), yi=yIdx(), t=get(g,yi,'h0000'), R=document.getElementById('readc');
+  const head=`<p class="name">Census Tract ${f.properties.NAME10}</p><p class="where">${CITY.has(g)?'City of Los Angeles':'Outside the City of LA'} · GEOID ${g}</p>`;
+  if(v==null){ R.innerHTML=head+`<p class="big">—</p><p class="how">No data: ${MISSLAB.toLowerCase()}.</p>`+(U.d[g]?comp(g):''); return; }
+  let ex='';
+  if(isChg()){ if(S.m==='pp'){ ex=`<dt>2000 → 2020</dt><dd>${shr(g,0,S.v).toFixed(1)}% → ${shr(g,2,S.v).toFixed(1)}%</dd>`; }
+               else ex=`<dt>2000 → 2020</dt><dd>${n0(cnt(g,0,S.v))} → ${n0(cnt(g,2,S.v))} units</dd>`; }
+  else if(!isT()) ex=`<dt>${vlabel()}</dt><dd>${n0(cnt(g,yi,S.v))} units</dd>`;
+  const big= Number.isNaN(v)? 'New since 2000' : fmt(v);
+  R.innerHTML=head+`<p class="big">${big}</p><dl class="stats">${ex}<dt>Housing units (${Y[yi]})</dt><dd>${t==null?'—':n0(t)}</dd></dl>${comp(g)}`; }
+let hov=null; const show=()=>{ const f=hov||S.pin; f? tract(f) : summary(); };
+tracts.on('mouseover',e=>{ hov=e.layer.feature; e.layer.setStyle({color:'#E09A12',weight:2.4,opacity:1}); e.layer.bringToFront(); show(); })
+      .on('mouseout',e=>{ hov=null; tracts.resetStyle(e.layer); show(); })
+      .on('click',e=>{ const f=e.layer.feature; S.pin= S.pin===f? null : f; pinL.clearLayers(); if(S.pin) pinL.addData(f); show(); });
+// ---------- 조작: 건물 규모, 연도(2000·2010·2020), 2000–2020 변화(Number·% change·Share)
+const grid=document.getElementById('var');
+grid.innerHTML=VARS.map(d=>`<button data-k="${d.k}">${d.n}<small>${d.s}</small></button>`).join('');
+grid.querySelectorAll('button').forEach(b=>b.onclick=()=>{ S.v=b.dataset.k; if(isT()&&S.m==='pp') S.m='abs'; draw(); });
+const yr=document.getElementById('year'), ch=document.getElementById('chg');
+yr.innerHTML=Y.map(y=>`<button data-m="${y}">${y}</button>`).join('');
+ch.innerHTML=Object.entries(MODES).map(([k,m])=>`<button data-m="${k}">${m.n}<small>${m.s}</small></button>`).join('');
+[...yr.querySelectorAll('button'),...ch.querySelectorAll('button')].forEach(b=>b.onclick=()=>{ if(b.disabled) return; S.m= /^\d+$/.test(b.dataset.m)? +b.dataset.m : b.dataset.m; draw(); });
+const NOTE={abs:'Number of housing units in 2020 minus 2000.',pct:'Change in the number of housing units relative to 2000. Tracts with none in 2000 are shown as “None in 2000”.',pp:'Share in 2020 minus share in 2000, in percentage points (pp).'};
+function buttons(){ grid.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===S.v));
+  [...yr.querySelectorAll('button'),...ch.querySelectorAll('button')].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m)===String(S.m)));
+  const pp=ch.querySelector('button[data-m="pp"]'); pp.disabled=isT(); pp.title= isT()? 'Not available for Total: the share of all housing units is always 100%' : '';
+  document.getElementById('note').textContent= isChg()? NOTE[S.m] : ''; }
+const op=document.getElementById('op'), opv=document.getElementById('opv'); opv.textContent=op.value+'%';
+op.oninput=()=>{ S.op=op.value/100; opv.textContent=op.value+'%'; tracts.setStyle(style); };
+document.querySelectorAll('.views button').forEach(b=>b.onclick=()=>fit(b.dataset.v==='city'?cityB:mainB,true));
+const head=document.getElementById('head'), tg=document.getElementById('toggle'), mob=()=>matchMedia('(max-width:680px)').matches;
+const setOpen=o=>{ head.classList.toggle('open',o); tg.setAttribute('aria-expanded',String(o)); tg.textContent=o?'Close ▴':'Settings ▾'; };
+tg.onclick=()=>setOpen(!head.classList.contains('open'));
+const rd=document.getElementById('read'), rt=document.getElementById('rtoggle');
+rt.onclick=()=>{ const m=!rd.classList.contains('more'); rd.classList.toggle('more',m); rt.setAttribute('aria-expanded',String(m)); rt.textContent=m?'Less ▾':'More ▴'; };
+map.on('mousedown touchstart',()=>{ if(mob()&&head.classList.contains('open')) setOpen(false); });
+draw();
+})();
+</script>
+</body>
+</html>
