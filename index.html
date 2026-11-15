@@ -100,8 +100,8 @@ let T,U; try{ [T,U]=await Promise.all([fetch('data/geo.topo.json').then(r=>r.jso
 const Y=U.years, K=U.keys, CITY=new Set(U.city);
 const VARS=[{k:'h0000',n:'Total',s:'housing units'},{k:'shr_h0001',n:'Single family',s:'1 unit'},{k:'shr_h0204',n:'2 to 4',s:'units'},{k:'shr_h0519',n:'5 to 19',s:'units'},
             {k:'shr_h2049',n:'20 to 49',s:'units'},{k:'shr_h5099',n:'50 or more',s:'units'},{k:'shr_h0219',n:'Missing middle',s:'2 to 19 units'},{k:'shr_h2099',n:'20 or more',s:'units'}];
-// 구성 막대: Economist 색표 (Single family 녹색, 2–4 → 50+ 파란색이 점점 진하게, Other 회색)
-const CAT=[['shr_h0001','Single family','#2D6D66'],['shr_h0204','2–4','#82C0E9'],['shr_h0519','5–19','#008BBC'],['shr_h2049','20–49','#3E647D'],['shr_h5099','50+','#1A476F']], OTHER='#C9D1D4';
+// 구성 막대: Single family 베이지, 2–4 → 50+ 파란색이 점점 진하게(Economist 색표), Other 회색
+const CAT=[['shr_h0001','Single family','#E8DFC2'],['shr_h0204','2–4','#82C0E9'],['shr_h0519','5–19','#008BBC'],['shr_h2049','20–49','#3E647D'],['shr_h5099','50+','#1A476F']], OTHER='#C9D1D4';
 const MODES={abs:{n:'Number',s:'units',t:'Change in number, 2000–2020'},pct:{n:'% change',s:'vs. 2000',t:'% change since 2000'},pp:{n:'Share',s:'pct. points',t:'Change in share, 2000–2020'}};
 const S={v:'shr_h0219',m:2020,op:.65,pin:null};
 const PAL=["#E9F1D4","#CFE0B5","#93C393","#4E9F7F","#1F7A6B","#0B5C55","#063A36"], DIV=["#D73027","#FC8D59","#FEE08B","#FFFFBF","#D9EF8B","#91CF60","#1A9850"];
@@ -140,11 +140,19 @@ const colour=g=>{ const v=cur(g); return v==null? MISS : Number.isNaN(v)? NOBASE
 // ---------- 지도: 배경(글자 없음) → tract(반투명) → 배경 글자 → City of LA 경계
 const map=L.map('map',{zoomControl:false,preferCanvas:true,minZoom:7,maxZoom:18,zoomSnap:.25,attributionControl:false});
 L.control.zoom({position:'topright'}).addTo(map); L.control.attribution({position:'bottomleft',prefix:'<a href="https://leafletjs.com">Leaflet</a>'}).addTo(map);
-const ATTR='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> · Data: U.S. Census Bureau';
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:20,attribution:ATTR}).addTo(map);
+// 배경 지도: CARTO 무료 키(carto.com/basemaps/apikey)를 받으면 아래 따옴표 안에 넣어요.
+//   키가 있으면 CARTO Voyager(지도 위에 도로·지명 글자를 다시 올림), 없으면 OpenStreetMap 표준 지도(키 필요 없음)를 써요.
+const CARTO_KEY='';
+const OSM='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', DATA=' · Data: U.S. Census Bureau';
 map.createPane('labels').style.zIndex=450; map.getPane('labels').style.pointerEvents='none';
 map.createPane('city').style.zIndex=460; map.getPane('city').style.pointerEvents='none';
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:20,pane:'labels'}).addTo(map);
+if(CARTO_KEY){
+  const k='?key='+encodeURIComponent(CARTO_KEY);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png'+k,{subdomains:'abcd',maxZoom:20,attribution:OSM+' &copy; <a href="https://carto.com/attributions">CARTO</a>'+DATA}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png'+k,{subdomains:'abcd',maxZoom:20,pane:'labels'}).addTo(map);
+} else {
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:OSM+DATA}).addTo(map);
+}
 const TR=topojson.feature(T,T.objects.tracts), CY=topojson.feature(T,T.objects.city), EDGE=topojson.mesh(T,T.objects.tracts,(a,b)=>a===b);
 const style=f=>({fillColor:colour(f.properties.GEOID10),fillOpacity:S.op*(cur(f.properties.GEOID10)==null?.6:1),color:'#FFFFFF',weight:.5,opacity:.7});
 const tracts=L.geoJSON(TR,{style,renderer:L.canvas({padding:.5})}).addTo(map);
@@ -172,10 +180,13 @@ function summary(){ const c=[0,1,2].map(yi=>csum(yi,S.v)), t=[0,1,2].map(yi=>csu
   document.getElementById('readc').innerHTML=`<p class="name">${vlabel()}</p><p class="where">Los Angeles County · ${mname()}</p><p class="big">${big}</p>
     <dl class="stats"><dt>2000</dt><dd>${row(0)}</dd><dt>2010</dt><dd>${row(1)}</dd><dt>2020</dt><dd>${row(2)}</dd></dl>
     <p class="how">Hover over or tap a tract to see its values and its mix of structure types. County shares are weighted by housing units.</p>`; }
-function comp(g){ const rows=Y.map((y,yi)=>{ if(!U.d[g]||!U.d[g][yi]) return `<div class="r"><span>${y}</span><div class="b"></div></div>`;
-    const segs=CAT.map(([k,n,c])=>[get(g,yi,k)||0,c,n]), s=segs.reduce((a,b)=>a+b[0],0);
+// 막대 순서: 고른 항목(묶음이면 그 안의 범주들)을 맨 왼쪽에, 나머지는 원래 순서, Other 는 맨 끝
+const MEMB={shr_h0001:['shr_h0001'],shr_h0204:['shr_h0204'],shr_h0519:['shr_h0519'],shr_h2049:['shr_h2049'],shr_h5099:['shr_h5099'],shr_h0219:['shr_h0204','shr_h0519'],shr_h2099:['shr_h2049','shr_h5099']};
+const order=()=>{ const m=MEMB[S.v]||[]; return [...CAT.filter(c=>m.includes(c[0])),...CAT.filter(c=>!m.includes(c[0]))]; };
+function comp(g){ const OC=order(); const rows=Y.map((y,yi)=>{ if(!U.d[g]||!U.d[g][yi]) return `<div class="r"><span>${y}</span><div class="b"></div></div>`;
+    const segs=OC.map(([k,n,c])=>[get(g,yi,k)||0,c,n]), s=segs.reduce((a,b)=>a+b[0],0);
     return `<div class="r"><span>${y}</span><div class="b">${segs.map(([v,c,n])=>`<i style="width:${v}%;background:${c}" title="${n}: ${v.toFixed(1)}%"></i>`).join('')}<i style="width:${Math.max(0,100-s)}%;background:${OTHER}" title="Other: ${Math.max(0,100-s).toFixed(1)}%"></i></div></div>`; }).join('');
-  return `<div class="comp">${rows}</div><div class="ckeys">${CAT.map(([k,n,c])=>`<span><i class="sw" style="background:${c}"></i>${n}</span>`).join('')}<span><i class="sw" style="background:${OTHER}"></i>Other (e.g., mobile homes)</span></div>`; }
+  return `<div class="comp">${rows}</div><div class="ckeys">${OC.map(([k,n,c])=>`<span><i class="sw" style="background:${c}"></i>${n}</span>`).join('')}<span><i class="sw" style="background:${OTHER}"></i>Other (e.g., mobile homes)</span></div>`; }
 function tract(f){ const g=f.properties.GEOID10, v=cur(g), yi=yIdx(), t=get(g,yi,'h0000'), R=document.getElementById('readc');
   const head=`<p class="name">Census Tract ${f.properties.NAME10}</p><p class="where">${CITY.has(g)?'City of Los Angeles':'Outside the City of LA'} · GEOID ${g}</p>`;
   if(v==null){ R.innerHTML=head+`<p class="big">—</p><p class="how">No data: ${MISSLAB.toLowerCase()}.</p>`+(U.d[g]?comp(g):''); return; }
